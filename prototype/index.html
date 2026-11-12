@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>琼超 FVS 打点台 · 原型 v1</title>
+<style>
+  :root{
+    --bg:#070d18; --panel:#0f1728; --panel2:#141f35; --panel3:#182541;
+    --border:#22314d; --text:#e6edf7; --muted:#8aa0bf; --dim:#5d7292;
+    --green:#22c55e; --amber:#f59e0b; --red:#ef4444; --blue:#38bdf8; --gray:#94a3b8;
+    --shadow:0 12px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:radial-gradient(1200px 700px at 50% -10%, #0d1a30 0%, var(--bg) 60%);
+    color:var(--text); font-family:"Microsoft YaHei","PingFang SC",system-ui,-apple-system,sans-serif;
+    font-size:14px; overflow:hidden; user-select:none;
+  }
+  kbd{
+    display:inline-block; min-width:18px; padding:1px 5px; border-radius:4px;
+    background:#0b1526; border:1px solid #2b3d5e; color:#b9cbe6; font-size:11px;
+    font-family:inherit; text-align:center;
+  }
+
+  /* 顶栏 */
+  .topbar{
+    height:60px; display:flex; align-items:center; gap:24px; padding:0 20px;
+    background:linear-gradient(180deg,#101b2f,#0c1526); border-bottom:1px solid var(--border);
+  }
+  .brand{display:flex; align-items:center; gap:12px; min-width:290px;}
+  .logo{
+    width:40px; height:40px; border-radius:10px; display:grid; place-items:center;
+    background:linear-gradient(135deg,#22c55e,#0ea5e9); color:#04121f; font-weight:800; font-size:14px;
+    letter-spacing:.5px;
+  }
+  .brand-title{font-size:15px; font-weight:700; letter-spacing:.3px;}
+  .brand-sub{font-size:11px; color:var(--muted); margin-top:2px;}
+  .match{display:flex; align-items:center; gap:14px; flex:1; justify-content:center;}
+  .team{font-size:16px; font-weight:600; color:#cfe0f7;}
+  .score{font-size:22px; font-weight:800; letter-spacing:2px; color:#fff;}
+  .divider{width:1px; height:22px; background:var(--border); margin:0 6px;}
+  .clock{font-size:24px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:1px; color:#7dfbb0;}
+  .half{font-size:11px; color:var(--muted); border:1px solid var(--border); padding:3px 8px; border-radius:20px;}
+  .status-group{display:flex; align-items:center; gap:10px; min-width:330px; justify-content:flex-end;}
+  .pill{
+    display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:20px;
+    font-size:12px; border:1px solid var(--border); background:#0b1526; color:#a9bdd8;
+  }
+  .pill i{width:7px; height:7px; border-radius:50%; background:currentColor; display:inline-block;}
+  .pill.ok{color:#4ade80; border-color:#14532d; background:#08170f;}
+  .pill.rec{color:#fca5a5; border-color:#5b1c1c; background:#170808;}
+  .pill.rec i{animation:blink 1.2s infinite;}
+  .user{font-size:12px; color:var(--muted); padding-left:6px;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+  /* 主体三栏 */
+  .layout{
+    height:calc(100vh - 60px - 44px);
+    display:grid; grid-template-columns:250px minmax(0,1fr) 330px; gap:14px; padding:14px;
+  }
+  .panel{
+    background:linear-gradient(180deg,#101a2d,#0c1526); border:1px solid var(--border);
+    border-radius:14px; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden;
+  }
+  .panel-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px 10px; border-bottom:1px solid rgba(34,49,77,.6);
+  }
+  .panel-head h2{font-size:13px; letter-spacing:1px; color:#b9cbe6; font-weight:700;}
+  .hint{font-size:11px; color:var(--dim);}
+  .count{
+    min-width:22px; height:22px; padding:0 7px; border-radius:11px; display:grid; place-items:center;
+    background:#13233d; color:#7dd3fc; font-size:11px; font-weight:700;
+  }
+
+  /* 左栏：打点 */
+  .left{padding-bottom:12px;}
+  .event-buttons{display:flex; flex-direction:column; gap:8px; padding:12px 14px;}
+  .ev-btn{
+    position:relative; display:flex; align-items:center; gap:12px; width:100%; min-height:54px;
+    padding:10px 12px; border-radius:11px; cursor:pointer; text-align:left;
+    background:linear-gradient(180deg,#16233c,#111c30); border:1px solid #253755;
+    border-left:4px solid var(--c); color:var(--text); transition:.12s ease;
+  }
+  .ev-btn:hover{background:#1b2b49; transform:translateY(-1px); border-color:#35507a; border-left-color:var(--c);}
+  .ev-btn:active{transform:scale(.985); background:#0e1930;}
+  .ev-key{
+    width:28px; height:28px; border-radius:7px; display:grid; place-items:center;
+    background:#0a1424; border:1px solid #2b3d5e; font-size:12px; font-weight:700; color:#a9bdd8; flex:none;
+  }
+  .ev-txt{display:flex; flex-direction:column; gap:2px;}
+  .ev-name{font-size:16px; font-weight:700; letter-spacing:.5px;}
+  .ev-sub{font-size:11px; color:var(--muted);}
+  .note-row{padding:0 14px 10px; display:flex; flex-direction:column; gap:6px;}
+  .note-row label{font-size:11px; color:var(--dim); letter-spacing:.5px;}
+  .note-row input{
+    width:100%; padding:10px 12px; border-radius:9px; background:#0a1424;
+    border:1px solid #253755; color:var(--text); font-size:13px; outline:none; font-family:inherit;
+  }
+  .note-row input:focus{border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.15);}
+  .note-row input::placeholder{color:#4d6285;}
+  .undo{
+    margin:0 14px 12px; padding:10px; border-radius:9px; cursor:pointer;
+    background:#0c1829; border:1px dashed #2b3d5e; color:#a9bdd8; font-size:12px; font-family:inherit;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .undo:hover{border-color:#4a6491; color:#dbe8f8;}
+  .challenge{margin:auto 14px 12px; padding:12px; border-radius:11px; background:#0e1d33; border:1px solid #2b3d5e; box-shadow:inset 0 1px 0 rgba(255,255,255,.03);}
+  .challenge-title{font-size:11px; color:#8aa0bf; letter-spacing:.5px; margin-bottom:8px;}
+  .challenge-row{display:flex; align-items:center; gap:8px; font-size:13px; color:#d6e4f7; padding:4px 0;}
+  .challenge-row span:first-child{width:44px; color:#a9bdd8;}
+  .challenge-row b{margin-left:auto; font-size:12px; color:#7dfbb0; font-weight:700;}
+  .dots{display:flex; gap:5px;}
+  .dots i{width:9px; height:9px; border-radius:50%; background:#22314d; display:block;}
+  .dots i.on{background:#22c55e; box-shadow:0 0 8px rgba(34,197,94,.5);}
+
+  /* 中栏 */
+  .center{display:flex; flex-direction:column; gap:14px; min-width:0;}
+  .monitors{flex:1; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:12px; min-height:0;}
+  .monitor{
+    position:relative; border-radius:12px; overflow:hidden; background:#08111f;
+    border:1px solid #1e2d48; box-shadow:inset 0 0 60px rgba(0,0,0,.5); min-height:0;
+  }
+  .monitor.wide{grid-column:1 / -1;}
+  .monitor canvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
+  .mon-label{
+    position:absolute; top:10px; left:10px; right:10px; display:flex; align-items:center; gap:8px;
+    font-size:11px; color:#d6e4f7; text-shadow:0 1px 3px rgba(0,0,0,.8); pointer-events:none;
+  }
+  .live{
+    display:inline-flex; align-items:center; gap:5px; padding:2px 7px; border-radius:4px;
+    background:rgba(220,38,38,.85); font-size:10px; font-weight:700; letter-spacing:.8px;
+  }
+  .live i{width:5px; height:5px; border-radius:50%; background:#fff; animation:blink 1.4s infinite;}
+  .mon-name{font-weight:700; letter-spacing:.5px;}
+  .mon-meta{margin-left:auto; color:#9fb4d0; font-variant-numeric:tabular-nums;}
+  .tc{
+    position:absolute; right:10px; bottom:8px; font-size:11px; color:#e8f1ff; letter-spacing:.8px;
+    font-variant-numeric:tabular-nums; text-shadow:0 1px 3px rgba(0,0,0,.9); pointer-events:none;
+  }
+  .rec-dot{
+    position:absolute; left:10px; bottom:8px; display:flex; align-items:center; gap:5px;
+    font-size:10px; color:#fca5a5; text-shadow:0 1px 3px rgba(0,0,0,.9); pointer-events:none;
+  }
+  .rec-dot i{width:6px; height:6px; border-radius:50%; background:#ef4444; animation:blink 1.2s infinite;}
+
+  .timeline-card{
+    background:linear-gradient(180deg,#101a2d,#0c1526); border:1px solid var(--border);
+    border-radius:12px; padding:12px 16px 10px; box-shadow:var(--shadow); flex:none;
+  }
+  .timeline-meta{display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:9px; letter-spacing:.5px;}
+  .timeline-meta b{color:#7dfbb0; font-variant-numeric:tabular-nums; font-size:12px;}
+  .timeline{
+    position:relative; height:30px; border-radius:7px; background:#0a1424;
+    border:1px solid #1e2d48; overflow:hidden; cursor:pointer;
+  }
+  .tl-fill{position:absolute; inset:0 auto 0 0; width:76%; background:linear-gradient(90deg,rgba(34,197,94,.08),rgba(34,197,94,.16));}
+  .markers{position:absolute; inset:0;}
+  .marker{
+    position:absolute; top:5px; width:4px; height:20px; border-radius:2px;
+    background:var(--c); transform:translateX(-2px); box-shadow:0 0 8px var(--c); opacity:.9;
+  }
+  .marker:hover{opacity:1; height:24px; top:3px;}
+  .playhead{
+    position:absolute; top:-2px; bottom:-2px; width:2px; background:#fff; left:76%;
+    box-shadow:0 0 10px rgba(255,255,255,.8); transition:left .3s linear;
+  }
+  .playhead::before{
+    content:""; position:absolute; top:-2px; left:-4px; width:10px; height:6px;
+    background:#fff; border-radius:2px;
+  }
+  .tl-scale{display:flex; justify-content:space-between; font-size:10px; color:#4d6285; margin-top:6px; padding:0 1px;}
+
+  /* 右栏：事件列表 */
+  .list{flex:1; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px;}
+  .list::-webkit-scrollbar{width:6px;}
+  .list::-webkit-scrollbar-thumb{background:#243553; border-radius:3px;}
+  .event-item{
+    display:grid; grid-template-columns:46px 1fr auto; gap:10px; align-items:center;
+    padding:10px; border-radius:10px; cursor:pointer; border:1px solid #1e2d48;
+    background:#0c1728; border-left:3px solid var(--c); transition:.12s;
+  }
+  .event-item:hover{background:#13223a; border-color:#2b3d5e; border-left-color:var(--c);}
+  .event-item.selected{background:#16263f; box-shadow:0 0 0 1px var(--c) inset;}
+  .ev-time{font-size:13px; font-weight:700; color:#cfe0f7; font-variant-numeric:tabular-nums;}
+  .ev-title{font-size:13px; font-weight:700; display:flex; align-items:center; gap:6px;}
+  .ev-cam{font-size:10px; color:#7f96b8; border:1px solid #253755; padding:1px 5px; border-radius:4px; font-weight:400;}
+  .ev-note{font-size:11px; color:var(--muted); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .ev-state{font-size:10px; padding:3px 7px; border-radius:10px; white-space:nowrap;}
+  .ev-state.ready{color:#4ade80; background:#08170f; border:1px solid #14532d;}
+  .ev-state.pending{color:#fbbf24; background:#1a1205; border:1px solid #5b3d0a; animation:blink 1.4s infinite;}
+  .list-foot{padding:9px 14px; font-size:11px; color:var(--dim); border-top:1px solid rgba(34,49,77,.6); text-align:center;}
+
+  /* 底栏 */
+  .bottombar{
+    height:44px; display:flex; align-items:center; gap:18px; padding:0 20px;
+    background:#0a1220; border-top:1px solid var(--border); font-size:11px; color:var(--muted);
+  }
+  .shortcuts{display:flex; gap:16px; align-items:center; flex:1; flex-wrap:wrap;}
+  .shortcuts span{display:inline-flex; align-items:center; gap:5px;}
+  .sys{display:flex; align-items:center; gap:14px;}
+  .sys .dot{width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px rgba(34,197,94,.7);}
+
+  /* Toast */
+  .toasts{position:fixed; left:50%; bottom:62px; transform:translateX(-50%); display:flex; flex-direction:column; gap:8px; z-index:50; pointer-events:none;}
+  .toast{
+    min-width:300px; padding:11px 16px; border-radius:10px; background:#0f1e33; border:1px solid #2b3d5e;
+    box-shadow:0 14px 34px rgba(0,0,0,.5); animation:toastIn .18s ease-out; border-left:3px solid var(--c,#22c55e);
+  }
+  .toast b{display:block; font-size:13px; margin-bottom:3px;}
+  .toast span{font-size:11px; color:var(--muted);}
+  @keyframes toastIn{from{opacity:0; transform:translateY(8px)}to{opacity:1; transform:none}}
+
+  @media (max-width:1180px){
+    .layout{grid-template-columns:220px minmax(0,1fr); grid-template-rows:1fr auto;}
+    .right{grid-column:1 / -1; max-height:230px;}
+    .list{flex-direction:row; overflow-x:auto;}
+    .event-item{min-width:250px;}
+    .status-group{min-width:auto;}
+  }
+  @media (max-width:860px){
+    body{overflow:auto;}
+    .layout{grid-template-columns:1fr; height:auto; grid-template-rows:auto auto auto;}
+    .monitors{grid-template-columns:1fr; grid-template-rows:220px 220px 220px;}
+    .monitor.wide{grid-column:auto;}
+    .topbar{flex-wrap:wrap; height:auto; padding:10px 14px; gap:10px;}
+    .status-group{min-width:auto;}
+    .bottombar{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">FVS</div>
+    <div>
+      <div class="brand-title">琼超复核辅助 · 打点台</div>
+      <div class="brand-sub">第 12 轮 · 海口赛区 · 机位 3 路</div>
+    </div>
+  </div>
+
+  <div class="match">
+    <span class="team">海港</span>
+    <span class="score">2 : 1</span>
+    <span class="team">椰城</span>
+    <span class="divider"></span>
+    <span class="clock" id="clock">68:24</span>
+    <span class="half">下半场</span>
+  </div>
+
+  <div class="status-group">
+    <span class="pill ok"><i></i>3 路在线</span>
+    <span class="pill rec"><i></i>录制中</span>
+    <span class="user">打点员 · 张三</span>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- 左：打点 -->
+  <section class="panel left">
+    <div class="panel-head">
+      <h2>事件打点</h2>
+      <span class="hint">快捷键 1–5</span>
+    </div>
+    <div class="event-buttons" id="eventButtons"></div>
+
+    <div class="note-row">
+      <label>备注（可选）</label>
+      <input id="noteInput" maxlength="60" placeholder="球员 / 位置 / 简要说明">
+    </div>
+
+    <button class="undo" id="undoBtn">撤销上一条 <kbd>Ctrl</kbd>+<kbd>Z</kbd></button>
+
+    <div class="challenge">
+      <div class="challenge-title">本场挑战次数</div>
+      <div class="challenge-row">
+        <span>海港</span>
+        <span class="dots"><i class="on"></i><i class="on"></i></span>
+        <b>2 / 2</b>
+      </div>
+      <div class="challenge-row">
+        <span>椰城</span>
+        <span class="dots"><i class="on"></i><i class="on"></i></span>
+        <b>2 / 2</b>
+      </div>
+    </div>
+  </section>
+
+  <!-- 中：监看 + 时间轴 -->
+  <section class="center">
+    <div class="monitors">
+      <div class="monitor wide">
+        <canvas data-mode="wide"></canvas>
+        <div class="mon-label">
+          <span class="live"><i></i>LIVE</span>
+          <span class="mon-name">全景机位</span>
+          <span class="mon-meta">1080p25 · 4.2 Mbps</span>
+        </div>
+        <div class="rec-dot"><i></i>REC</div>
+        <div class="tc">68:24:12</div>
+      </div>
+
+      <div class="monitor">
+        <canvas data-mode="goal"></canvas>
+        <div class="mon-label">
+          <span class="live"><i></i>LIVE</span>
+          <span class="mon-name">门线机位</span>
+          <span class="mon-meta">60fps · 3.6 Mbps</span>
+        </div>
+        <div class="rec-dot"><i></i>REC</div>
+        <div class="tc">68:24:12</div>
+      </div>
+
+      <div class="monitor">
+        <canvas data-mode="close"></canvas>
+        <div class="mon-label">
+          <span class="live"><i></i>LIVE</span>
+          <span class="mon-name">特写机位</span>
+          <span class="mon-meta">4K · 6.0 Mbps</span>
+        </div>
+        <div class="rec-dot"><i></i>REC</div>
+        <div class="tc">68:24:12</div>
+      </div>
+    </div>
+
+    <div class="timeline-card">
+      <div class="timeline-meta">
+        <span>比赛时间轴 · 0–90 分钟</span>
+        <span>当前 <b id="tlNow">68:24</b></span>
+      </div>
+      <div class="timeline" id="timeline">
+        <div class="tl-fill"></div>
+        <div class="markers" id="markers"></div>
+        <div class="playhead" id="playhead"></div>
+      </div>
+      <div class="tl-scale">
+        <span>0'</span><span>15'</span><span>30'</span><span>45'</span><span>60'</span><span>75'</span><span>90'</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 右：事件列表 -->
+  <aside class="panel right">
+    <div class="panel-head">
+      <h2>最近事件</h2>
+      <span class="count" id="eventCount">0</span>
+    </div>
+    <div class="list" id="eventList"></div>
+    <div class="list-foot">点击事件定位片段 · 打点后自动生成 3 路片段</div>
+  </aside>
+</main>
+
+<footer class="bottombar">
+  <div class="shortcuts">
+    <span><kbd>1</kbd>进球</span>
+    <span><kbd>2</kbd>点球</span>
+    <span><kbd>3</kbd>红牌</span>
+    <span><kbd>4</kbd>身份认错</span>
+    <span><kbd>5</kbd>其他</span>
+    <span><kbd>Ctrl</kbd>+<kbd>Z</kbd>撤销</span>
+  </div>
+  <div class="sys">
+    <span class="dot"></span>
+    <span>AI 候选：开启</span>
+    <span>磁盘占用 62%</span>
+    <span>片段回放器为独立页面</span>
+  </div>
+</footer>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var TYPES = {
+    goal:     { label:"进球",     sub:"进球 / 未进球",   color:"#22c55e", key:"1" },
+    penalty:  { label:"点球",     sub:"点球判罚",        color:"#f59e0b", key:"2" },
+    red:      { label:"红牌",     sub:"直接红牌",        color:"#ef4444", key:"3" },
+    identity: { label:"身份认错", sub:"mistaken identity", color:"#38bdf8", key:"4" },
+    other:    { label:"其他",     sub:"补录 / 备注",     color:"#94a3b8", key:"5" }
+  };
+
+  var MATCH_SECONDS = 90 * 60;
+  var clock = 68 * 60 + 24;
+  var seq = 0;
+  var events = [];
+
+  var elButtons = document.getElementById("eventButtons");
+  var elList = document.getElementById("eventList");
+  var elCount = document.getElementById("eventCount");
+  var elClock = document.getElementById("clock");
+  var elTlNow = document.getElementById("tlNow");
+  var elMarkers = document.getElementById("markers");
+  var elPlayhead = document.getElementById("playhead");
+  var elNote = document.getElementById("noteInput");
+  var elToasts = document.getElementById("toasts");
+
+  function fmt(sec){
+    sec = Math.max(0, Math.floor(sec));
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function fmtTC(sec){
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return (m<10?"0":"")+m+":"+(s<10?"0":"")+s+":12";
+  }
+
+  function renderButtons(){
+    elButtons.innerHTML = Object.keys(TYPES).map(function(k){
+      var t = TYPES[k];
+      return '<button class="ev-btn" data-type="'+k+'" style="--c:'+t.color+'">' +
+        '<span class="ev-key">'+t.key+'</span>' +
+        '<span class="ev-txt"><span class="ev-name">'+t.label+'</span><span class="ev-sub">'+t.sub+'</span></span>' +
+      '</button>';
+    }).join("");
+  }
+
+  function renderEvents(){
+    var sorted = events.slice().sort(function(a,b){ return b.clock - a.clock; });
+    elList.innerHTML = sorted.map(function(e){
+      var t = TYPES[e.type];
+      return '<div class="event-item" data-id="'+e.id+'" style="--c:'+t.color+'">' +
+        '<div class="ev-time">'+fmt(e.clock)+'</div>' +
+        '<div class="ev-main">' +
+          '<div class="ev-title">'+t.label+' <span class="ev-cam">'+e.camera+'</span></div>' +
+          '<div class="ev-note">'+(e.note ? e.note : "无备注")+'</div>' +
+        '</div>' +
+        '<div class="ev-state '+(e.status==="ready"?"ready":"pending")+'">'+(e.status==="ready"?"就绪":"切片中")+'</div>' +
+      '</div>';
+    }).join("");
+    elCount.textContent = events.length;
+    renderMarkers();
+  }
+
+  function renderMarkers(){
+    elMarkers.innerHTML = events.map(function(e){
+      var pct = Math.min(99.5, e.clock / MATCH_SECONDS * 100);
+      return '<div class="marker" data-id="'+e.id+'" style="left:'+pct+'%; --c:'+TYPES[e.type].color+'"></div>';
+    }).join("");
+  }
+
+  function showToast(title, meta, color){
+    var d = document.createElement("div");
+    d.className = "toast";
+    d.style.setProperty("--c", color || "#22c55e");
+    d.innerHTML = "<b>" + title + "</b><span>" + meta + "</span>";
+    elToasts.appendChild(d);
+    setTimeout(function(){
+      d.style.transition = "opacity .25s, transform .25s";
+      d.style.opacity = "0";
+      d.style.transform = "translateY(6px)";
+      setTimeout(function(){ d.remove(); }, 260);
+    }, 2600);
+  }
+
+  function addEvent(type){
+    var t = TYPES[type];
+    var note = elNote.value.trim();
+    var ev = {
+      id: ++seq,
+      type: type,
+      clock: clock,
+      camera: "全景",
+      note: note,
+      status: "pending"
+    };
+    events.push(ev);
+    elNote.value = "";
+    renderEvents();
+    showToast("已打点 · " + t.label, fmt(clock) + " · 全景 · 3 路片段生成中", t.color);
+
+    setTimeout(function(){
+      ev.status = "ready";
+      var row = elList.querySelector('[data-id="'+ev.id+'"]');
+      if(row){
+        var st = row.querySelector(".ev-state");
+        st.className = "ev-state ready";
+        st.textContent = "就绪";
+      }
+    }, 2200);
+  }
+
+  function undo(){
+    if(!events.length) return;
+    var removed = events.pop();
+    renderEvents();
+    showToast("已撤销 · " + TYPES[removed.type].label, fmt(removed.clock) + " · 打点记录已移除", "#94a3b8");
+  }
+
+  function selectEvent(id){
+    var ev = events.filter(function(x){ return x.id === id; })[0];
+    if(!ev) return;
+    elList.querySelectorAll(".event-item").forEach(function(n){ n.classList.remove("selected"); });
+    var row = elList.querySelector('[data-id="'+id+'"]');
+    if(row) row.classList.add("selected");
+    showToast("定位片段 · " + TYPES[ev.type].label,
+      fmt(ev.clock) + " · " + ev.camera + " · 片段" + (ev.status === "ready" ? "已就绪" : "生成中"), TYPES[ev.type].color);
+  }
+
+  /* 事件绑定 */
+  elButtons.addEventListener("click", function(e){
+    var btn = e.target.closest(".ev-btn");
+    if(btn) addEvent(btn.dataset.type);
+  });
+
+  document.getElementById("undoBtn").addEventListener("click", undo);
+
+  elList.addEventListener("click", function(e){
+    var row = e.target.closest(".event-item");
+    if(row) selectEvent(Number(row.dataset.id));
+  });
+
+  elMarkers.addEventListener("click", function(e){
+    var m = e.target.closest(".marker");
+    if(m) selectEvent(Number(m.dataset.id));
+  });
+
+  document.addEventListener("keydown", function(e){
+    var tag = (document.activeElement && document.activeElement.tagName) || "";
+    if(tag === "INPUT" || tag === "TEXTAREA") return;
+    if(e.ctrlKey && (e.key === "z" || e.key === "Z")){
+      e.preventDefault(); undo(); return;
+    }
+    var map = { "1":"goal", "2":"penalty", "3":"red", "4":"identity", "5":"other" };
+    if(map[e.key]){
+      e.preventDefault();
+      addEvent(map[e.key]);
+    }
+  });
+
+  /* 时钟 */
+  setInterval(function(){
+    clock += 1;
+    elClock.textContent = fmt(clock);
+    elTlNow.textContent = fmt(clock);
+    elPlayhead.style.left = Math.min(99.5, clock / MATCH_SECONDS * 100) + "%";
+    document.querySelectorAll(".tc").forEach(function(n){ n.textContent = fmtTC(clock); });
+  }, 1000);
+
+  /* 画布模拟画面 */
+  function initCanvas(canvas, mode){
+    var ctx = canvas.getContext("2d");
+    function resize(){
+      var dpr = window.devicePixelRatio || 1;
+      var w = canvas.clientWidth || 400, h = canvas.clientHeight || 220;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    if(window.ResizeObserver){ new ResizeObserver(resize).observe(canvas); }
+    window.addEventListener("resize", resize);
+    resize();
+
+    var t0 = performance.now();
+    function frame(now){
+      var t = (now - t0) / 1000;
+      var w = canvas.clientWidth, h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+      if(mode === "wide") drawWide(ctx, w, h, t);
+      else if(mode === "goal") drawGoal(ctx, w, h, t);
+      else drawClose(ctx, w, h, t);
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function drawWide(ctx, w, h, t){
+    var g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, "#123a26");
+    g.addColorStop(1, "#0a2417");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = "rgba(255,255,255,.30)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(w*0.05, h*0.12, w*0.90, h*0.76);
+    ctx.beginPath();
+    ctx.moveTo(w*0.5, h*0.12); ctx.lineTo(w*0.5, h*0.88); ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(w*0.5, h*0.5, Math.min(w,h)*0.12, 0, Math.PI*2); ctx.stroke();
+    ctx.strokeRect(w*0.05, h*0.30, w*0.12, h*0.40);
+    ctx.strokeRect(w*0.83, h*0.30, w*0.12, h*0.40);
+
+    var groups = [
+      {n:5, c:"#e2e8f0", base:0.30},
+      {n:5, c:"#f87171", base:0.62}
+    ];
+    groups.forEach(function(grp, gi){
+      for(var i=0;i<grp.n;i++){
+        var px = w*(0.12 + 0.74*((i*0.17 + gi*0.09 + t*0.018) % 1));
+        var py = h*(0.22 + 0.56*Math.abs(Math.sin(t*0.45 + i*0.9 + gi)));
+        ctx.beginPath();
+        ctx.arc(px, py, Math.max(3, Math.min(w,h)*0.014), 0, Math.PI*2);
+        ctx.fillStyle = grp.c;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,.4)";
+        ctx.stroke();
+      }
+    });
+
+    var bx = w*(0.5 + 0.22*Math.sin(t*0.6));
+    var by = h*(0.5 + 0.16*Math.cos(t*0.8));
+    ctx.beginPath();
+    ctx.arc(bx, by, Math.max(2, Math.min(w,h)*0.009), 0, Math.PI*2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.6)";
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255,255,255,.06)";
+    ctx.fillRect(0, h*0.88, w, h*0.12);
+  }
+
+  function drawGoal(ctx, w, h, t){
+    var g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, "#0f2c1d");
+    g.addColorStop(1, "#07180f");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = "rgba(255,255,255,.22)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, h*0.18); ctx.lineTo(w, h*0.18);
+    ctx.moveTo(0, h*0.82); ctx.lineTo(w, h*0.82);
+    ctx.stroke();
+
+    var gx = w*0.62, gw = w*0.26, gy = h*0.26, gh = h*0.48;
+    ctx.strokeStyle = "rgba(255,255,255,.85)";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(gx, gy, gw, gh);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(255,255,255,.25)";
+    for(var i=1;i<8;i++){
+      var x = gx + gw*i/8;
+      ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x, gy+gh); ctx.stroke();
+    }
+    for(var j=1;j<5;j++){
+      var y = gy + gh*j/5;
+      ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx+gw, y); ctx.stroke();
+    }
+
+    var ballX = gx + gw*(0.5 + 0.5*Math.sin(t*0.9));
+    var ballY = gy + gh*(0.55 + 0.18*Math.cos(t*1.3));
+    ctx.beginPath();
+    ctx.arc(ballX, ballY, Math.max(4, h*0.035), 0, Math.PI*2);
+    ctx.fillStyle = "#f8fafc"; ctx.fill();
+    ctx.strokeStyle = "#0f172a"; ctx.lineWidth = 2; ctx.stroke();
+
+    var kx = gx + gw*0.42, ky = gy + gh*0.55;
+    ctx.fillStyle = "#22c55e";
+    ctx.fillRect(kx-8, ky-26, 16, 52);
+    ctx.beginPath();
+    ctx.arc(kx, ky-34, 9, 0, Math.PI*2);
+    ctx.fillStyle = "#fcd34d"; ctx.fill();
+  }
+
+  function drawClose(ctx, w, h, t){
+    var g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, "#173049");
+    g.addColorStop(1, "#0a1626");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.fillStyle = "rgba(255,255,255,.05)";
+    for(var i=0;i<6;i++){
+      ctx.fillRect(0, h*(0.55 + i*0.08), w, 2);
+    }
+
+    var people = [
+      {x:0.30, c:"#e2e8f0", num:"10", off:0},
+      {x:0.52, c:"#ef4444", num:"4", off:1.4},
+      {x:0.72, c:"#e2e8f0", num:"7", off:2.8}
+    ];
+    people.forEach(function(p){
+      var cx = w*(p.x + 0.025*Math.sin(t*0.7 + p.off));
+      var cy = h*0.70;
+      var bw = w*0.11, bh = h*0.44;
+      ctx.fillStyle = p.c;
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(cx-bw/2, cy-bh, bw, bh, 10) : ctx.rect(cx-bw/2, cy-bh, bw, bh);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy-bh-16, Math.max(10, h*0.07), 0, Math.PI*2);
+      ctx.fillStyle = "#e8c9a8"; ctx.fill();
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "700 " + Math.max(14, h*0.10) + "px Microsoft YaHei";
+      ctx.textAlign = "center";
+      ctx.fillText(p.num, cx, cy - bh*0.45);
+    });
+  }
+
+  /* 初始数据 */
+  events = [
+    { id: ++seq, type:"goal",     clock: 12*60+40, camera:"全景", note:"7 号头球破门", status:"ready" },
+    { id: ++seq, type:"penalty",  clock: 34*60+18, camera:"门线", note:"禁区内手球",   status:"ready" },
+    { id: ++seq, type:"red",      clock: 54*60+3,  camera:"全景", note:"严重犯规",     status:"ready" },
+    { id: ++seq, type:"identity", clock: 61*60+55, camera:"特写", note:"待核对号码",   status:"ready" }
+  ];
+
+  renderButtons();
+  renderEvents();
+  document.querySelectorAll("canvas").forEach(function(c){
+    initCanvas(c, c.dataset.mode);
+  });
+})();
+</script>
+</body>
+</html>
